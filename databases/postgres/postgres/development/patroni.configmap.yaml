@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: patroni-config
+  namespace: ${NAMESPACE}
+data:
+  patroni.yaml: |
+    scope: postgres
+    namespace: /pgcluster/
+    name: postgresql
+
+    restapi:
+      listen: 0.0.0.0:8008
+      connect_address: $(POD_IP):8008
+
+    etcd:
+      hosts: etcd-0.etcd:2379,etcd-1.etcd:2379,etcd-2.etcd:2379
+
+    bootstrap:
+      dcs:
+        ttl: 30
+        loop_wait: 10
+        retry_timeout: 10
+        maximum_lag_on_failover: 1048576
+        synchronous_mode: true
+        synchronous_mode_strict: true
+        synchronous_node_count: 1
+        postgresql:
+          use_pg_rewind: true
+          parameters:
+            wal_level: replica
+            hot_standby: "on"
+            wal_keep_segments: 8
+            max_wal_senders: 10
+            max_replication_slots: 10
+            synchronous_commit: "on"
+            synchronous_standby_names: '1 (postgres-1,postgres-2)'
+
+      initdb:
+        - encoding: UTF8
+        - data-checksums
+
+    postgresql:
+      listen: 0.0.0.0:5432
+      connect_address: $(POD_IP):5432
+      data_dir: /home/postgres/pgdata
+      bin_dir: /usr/lib/postgresql/14/bin
+      authentication:
+        superuser:
+          username: postgres
+          password: your-password
+        replication:
+          username: replicator
+          password: your-password

@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: patroni
+  namespace: ${NAMESPACE}
+spec:
+  serviceName: "postgres"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: patroni
+  template:
+    metadata:
+      labels:
+        app: patroni
+    spec:
+      containers:
+        - name: patroni
+          image: registry.opensource.zalan.do/acid/spilo-14:2.1-p3
+          ports:
+            - containerPort: 5432
+              name: postgres
+            - containerPort: 8008
+              name: api
+          env:
+            - name: PATRONI_KUBERNETES_LABELS
+              value: '{"app": "patroni"}'
+            - name: PATRONI_ETCD_HOSTS
+              value: etcd-0.etcd:2379,etcd-1.etcd:2379,etcd-2.etcd:2379
+            - name: PATRONI_SCOPE
+              value: postgres
+            - name: PATRONI_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PATRONI_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PATRONI_KUBERNETES_USE_ENDPOINTS
+              value: "true"
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: PATRONI_CONFIG
+              value: /config/patroni.yaml
+          volumeMounts:
+            - name: data
+              mountPath: /home/postgres/pgdata
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: patroni-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Mi
