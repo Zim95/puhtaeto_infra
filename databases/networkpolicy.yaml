@@ -1,0 +1,47 @@
+# PostgreSQL and Redis here are shared across projects (ikompare today,
+# browseterm later), so trust is granted per-namespace rather than by
+# listing every individual client Pod's app label: any namespace labeled
+# data-access: "true" (see deploy/app/namespace.yaml) may reach these
+# ports from any of its own Pods. A new client project only needs to
+# label its own namespace -- this file never needs to change for it.
+#
+# Caveat documented in ops/DEPLOYMENT.md: kube-router (this k3s's default
+# CNI) does enforce NetworkPolicy, with a real timing gap for freshly
+# created Pods -- see the migration Job's backoffLimit comment.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-data-clients
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              data-access: "true"
+      ports:
+        - port: postgres
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-allow-data-clients
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              data-access: "true"
+      ports:
+        - port: redis
+          protocol: TCP

@@ -1,0 +1,14 @@
+# Gives Redis's AOF file a stable volume so cache contents survive a Pod
+# restart or node reboot instead of starting empty every time.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  labels:
+    app: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

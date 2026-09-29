@@ -1,0 +1,23 @@
+# Shared by every project's stateful backing services -- ikompare's
+# PostgreSQL and Redis live here, and browseterm's will too. Application
+# namespaces (ikompare, and later browseterm) are never mixed in here;
+# they reach into this namespace only over the network, gated by
+# networkpolicy.yaml's namespaceSelector on the data-access label.
+#
+# This namespace carries that same label: a namespaceSelector evaluates
+# the CONNECTING pod's own namespace regardless of whether that's the
+# same namespace as the policy's target, so without this label a
+# same-namespace client -- the migration Job, in particular, which lives
+# here specifically to share postgres's own Secret -- would never match
+# its own NetworkPolicy and could never connect at all. Caught live: the
+# migration Job retried for its full backoffLimit and still failed every
+# single attempt with "connection refused", which is what a permanent
+# policy mismatch looks like, not the transient ipset-registration delay
+# documented on migration-job.yaml (that one eventually succeeds; this
+# one never would have).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+  labels:
+    data-access: "true"

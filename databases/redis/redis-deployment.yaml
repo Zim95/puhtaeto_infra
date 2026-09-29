@@ -1,0 +1,90 @@
+# A plain Deployment, not a StatefulSet: Redis needs no stable network
+# identity (a single ClusterIP Service is enough), but it does carry a
+# real PersistentVolumeClaim (redis-pvc.yaml) so cache contents survive a
+# Pod restart rather than starting cold every time -- PostgreSQL remains
+# authoritative regardless, so a lost or corrupted AOF file is never
+# anything worse than a cold cache.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # the PVC is RWO -- two Pods could never mount it at once anyway, and this avoids two Redis Pods briefly answering different cache states
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      terminationGracePeriodSeconds: 10
+      # runAsUser must be explicit: the official redis image's default
+      # user is root, so runAsNonRoot alone (with no runAsUser) makes
+      # kubelet refuse to start the container at all ("container has
+      # runAsNonRoot and image will run as root") -- caught live the
+      # first time this Deployment was actually scheduled. uid 999 is
+      # the "redis" system user the image itself already creates.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+        - name: redis
+          image: redis:7.4.1
+          args:
+            - redis-server
+            - --dir
+            - /data
+            - --maxmemory
+            - "200mb"
+            - --maxmemory-policy
+            - allkeys-lru
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+          ports:
+            - name: redis
+              containerPort: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: redis-data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data

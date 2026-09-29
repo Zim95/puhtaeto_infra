@@ -1,0 +1,17 @@
+# ClusterIP only: PostgreSQL must never be reachable from outside the
+# cluster. Applications connect at postgres:5432 inside the namespace.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

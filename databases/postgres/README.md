@@ -1,40 +1,34 @@
-# Postgres Setup
-Currently there is no support for High Availability Postgres Cluster.
-We currently only support a single Postgres instance with a K8s service.
+# PostgreSQL (shared, single-instance)
 
-# Prerequisites
-1. Docker installed.
-2. Kubernetes and kubectl setup.
+A single PostgreSQL instance (`postgres:17.6`, one `StatefulSet` replica with a `PersistentVolumeClaim`)
+in the shared `data` namespace (see `../namespace.yaml`) - meant to hold every project's own
+database, not one Postgres per project. Adapted from ikompare's own real, production-verified
+manifests.
 
-# How to setup?
-1. Clone this repository:
-    ```bash
-    $ git clone https://github.com/Zim95/postgres_ha
-    ```
+## Setup
 
-2. Once done, create an `env.mk` file with the following details:
-    ```Makefile
-    NAMESPACE=<namespace>
+```bash
+cp postgres.env.example postgres.env   # fill in real values - never commit postgres.env
+./setup.sh
+```
 
-    POSTGRES_PASSWORD=<password>
-    POSTGRES_USER=<username>
-    POSTGRES_DB=<dbname>
-    POSTGRES_TEST_DB=<testdbname>
-    ```
+Idempotent - safe to re-run. Applies the shared `data` namespace + NetworkPolicy, creates/updates
+the `postgres-credentials` Secret from `postgres.env`, and deploys the Service + StatefulSet.
 
-3. Make all the scripts executable:
-    ```bash
-    $ chmod +x ./scripts/**/*
-    ```
+## Connecting from your own project's namespace
 
-4. Setup postgres pod and service:
-    ```bash
-    $ make dev_pg_single_setup
-    ```
+1. Label your project's namespace `data-access: "true"` - `../networkpolicy.yaml` only allows
+   ingress to Postgres/Redis from namespaces carrying that label.
+2. Connect at `postgres.data.svc.cluster.local:5432` using your own database's own credentials
+   (create a separate database/user inside this same Postgres instance for your project, rather
+   than sharing the `postgres-credentials` Secret above across projects).
 
-5. Teardown postgres pod and service:
-    ```bash
-    $ make dev_pg_single_teardown
-    ```
+## Real gotchas already hit and fixed (see the manifest's own comments)
 
-> Note: The setup exposes the Postgres instance as the K8s service `browseterm-pg-service:5432` (use this as `POSTGRES_HOST` for other services).
+- The official Postgres image's entrypoint needs root + `CAP_CHOWN`/`CAP_FOWNER` for its first-run
+  data directory initialization - `runAsNonRoot`/`capabilities.drop: ["ALL"]` would break that;
+  only `allowPrivilegeEscalation: false` is set.
+- Kubernetes does **not** expand `$(VAR)` inside a probe's `exec.command` array (that substitution
+  only applies to a container's own `command`/`args`) - the readiness/liveness probes use a shell
+  wrapper (`sh -c 'pg_isready -U "$POSTGRES_USER" ...'`) to read the real environment variable at
+  run time instead.

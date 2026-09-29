@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: postgres
+          image: postgres:17.6
+          ports:
+            - name: postgres
+              containerPort: 5432
+          # The official postgres image's entrypoint must start as root to
+          # chown/initialize the data directory on first run before
+          # dropping to the postgres user itself; runAsNonRoot and
+          # readOnlyRootFilesystem would break that first-run
+          # initialization, so only the safe, always-applicable subset is
+          # set here. capabilities.drop:["ALL"] must NOT be added either,
+          # even though the pod still runs as root/UID 0 -- Linux
+          # capabilities gate chown/chmod independently of UID, and
+          # dropping CAP_CHOWN/CAP_FOWNER breaks that same first-run
+          # initialization just as badly. Caught live: the container
+          # crash-looped with "chown: ... Operation not permitted" the
+          # first time this StatefulSet was ever actually scheduled.
+          securityContext:
+            allowPrivilegeEscalation: false
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          # Kubernetes does NOT expand $(VAR) references inside probe
+          # exec.command arrays -- that substitution only applies to a
+          # container's own command/args. The literal string
+          # "$(POSTGRES_USER)" was being passed straight to pg_isready,
+          # which fell back to connecting as the OS user (root) --
+          # caught live via a spinning "role \"root\" does not exist"
+          # every few seconds in postgres's own logs. A shell wrapper
+          # reads the real environment variable at run time instead,
+          # using ordinary shell expansion, not Kubernetes' syntax.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi

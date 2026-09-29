@@ -1,0 +1,33 @@
+# Docker Desktop's own built-in Kubernetes - MetalLB IP Address Pool
+#
+# Docker Desktop's Kubernetes node lives on 192.168.65.x (its own VM network - NOT the Multipass
+# 192.168.64.x subnet ../k3s/metallb-config.yaml uses for a Multipass VM). Adapted from this
+# project's own real, previously-used env.mk value for a docker-desktop deployment
+# (METALLB_POOL=192.168.65.200-192.168.65.250) - same IPAddressPool/L2Advertisement shape as the
+# k3s version, just the correct subnet for this cluster type.
+#
+# Prerequisites:
+#   1. MetalLB must be installed:
+#      kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml
+#   2. Wait for MetalLB to be ready:
+#      kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
+#
+# See setup.sh in this directory to automate all of this.
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: first-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.65.200-192.168.65.250
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: l2advertisement
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - first-pool
