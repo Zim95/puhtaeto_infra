@@ -45,7 +45,6 @@ Handy commands afterward: `multipass shell <VM>` · `multipass stop <VM>` ·
   runtime `setup.sh` installs at the node level - apply this once the cluster is up so workloads can
   actually request `runtimeClassName: gvisor`.
 - **`snapshot-pvc.yaml`** - a shared local-storage PVC for snapshot/scratch use.
-- **`loki.yaml`, `grafana.yaml`, `alloy.yaml`** - a basic observability stack (logs + dashboards).
 - **`device_cloud_grpc_connectivity.md`** - how a remote Cloud cluster and many independent local
   Device clusters reach each other over a persistent streaming gRPC connection (one outbound
   stream per device, Traefik `IngressRoute` + custom `ServersTransport` gotchas and all) - read
@@ -61,6 +60,8 @@ Apply the manifests once the cluster is up, e.g.:
 ```bash
 kubectl apply -f gvisor-runtimeclass.yaml
 kubectl apply -f snapshot-pvc.yaml
-kubectl apply -f loki.yaml -f grafana.yaml -f alloy.yaml
 # minio.yaml and letsencrypt-issuer.yaml: see their own docs above for helm/cert-manager prerequisites first.
 ```
+
+See `../../observability/` for the shared logs/metrics/dashboards stack (moved out of here - it's
+cluster-wide infra, not part of the cluster bootstrap itself).

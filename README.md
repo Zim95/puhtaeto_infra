@@ -19,8 +19,7 @@ original repos/locations; this repo starts fresh.
   own `setup.sh` and README:
   - **`cluster/k3s/`** - single-node k3s (Multipass VM locally, a self-owned cloud VM or Raspberry
     Pi in prod) - the only option here with real NetworkPolicy enforcement (kube-router). Includes
-    gVisor sandboxing, ingress-nginx + MetalLB, cert-manager, MinIO, and a basic observability stack
-    (Loki/Grafana/Alloy).
+    gVisor sandboxing, ingress-nginx + MetalLB, cert-manager, and MinIO.
   - **`cluster/k3d/`** - k3s-in-Docker, for fast disposable local dev clusters.
   - **`cluster/docker-desktop/`** - Docker Desktop's own built-in Kubernetes - simplest option, but
     no real NetworkPolicy enforcement.
@@ -28,6 +27,9 @@ original repos/locations; this repo starts fresh.
   to back every project (not one database pair per project) - see `databases/README.md` for the
   shared-namespace/NetworkPolicy design, and `databases/postgres/`, `databases/redis/` for each
   one's own `setup.sh` and README.
+- **`observability/`** - a shared logs/metrics/dashboards stack (Loki/Grafana/Alloy today) meant to
+  watch every project on the cluster, same shared-infra pattern as `databases/` - see
+  `observability/README.md`.
 
 ## Adding new infra
 
