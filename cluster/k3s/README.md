@@ -50,6 +50,11 @@ Handy commands afterward: `multipass shell <VM>` · `multipass stop <VM>` ·
   Device clusters reach each other over a persistent streaming gRPC connection (one outbound
   stream per device, Traefik `IngressRoute` + custom `ServersTransport` gotchas and all) - read
   this before wiring up any project's own cloud-to-remote-cluster control channel.
+- **`remote_kubectl_via_tailscale.md`** - how to reach this (or any) remote single-node k3s
+  cluster's API server directly with `kubectl` from your own Mac, over Tailscale instead of a
+  public port or an SSH tunnel - join the same tailnet, add the Tailscale IP to k3s's own
+  `tls-san`, then copy/merge the admin kubeconfig. This is how `puhtaeto-prod-o1` is actually
+  reached today.
 
 Apply the manifests once the cluster is up, e.g.:
 
