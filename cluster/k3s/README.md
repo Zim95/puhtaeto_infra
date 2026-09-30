@@ -46,6 +46,10 @@ Handy commands afterward: `multipass shell <VM>` · `multipass stop <VM>` ·
   actually request `runtimeClassName: gvisor`.
 - **`snapshot-pvc.yaml`** - a shared local-storage PVC for snapshot/scratch use.
 - **`loki.yaml`, `grafana.yaml`, `alloy.yaml`** - a basic observability stack (logs + dashboards).
+- **`device_cloud_grpc_connectivity.md`** - how a remote Cloud cluster and many independent local
+  Device clusters reach each other over a persistent streaming gRPC connection (one outbound
+  stream per device, Traefik `IngressRoute` + custom `ServersTransport` gotchas and all) - read
+  this before wiring up any project's own cloud-to-remote-cluster control channel.
 
 Apply the manifests once the cluster is up, e.g.:
 
